@@ -1,0 +1,21 @@
+{
+  "name": "leadstream",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "scan": "node scripts/run-local.js --once",
+    "autopilot": "node scripts/run-local.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
+    "@supabase/supabase-js": "^2.112.4",
+    "dotenv": "^17.4.2",
+    "next": "^14.2.35",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

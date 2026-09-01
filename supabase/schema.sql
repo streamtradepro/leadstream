@@ -1,0 +1,35 @@
+-- LeadStream schema. Run once in the Supabase SQL editor.
+create table if not exists leads (
+  id uuid primary key default gen_random_uuid(),
+  reddit_id text unique not null,
+  subreddit text,
+  title text,
+  body text,
+  author text,
+  url text,
+  posted_at timestamptz,
+  reddit_score int default 0,
+  intent text,               -- service | diy | noise
+  location_raw text,
+  city text,
+  state text,
+  lead_score int default 0,
+  reasoning text,
+  reply_draft text,
+  status text default 'new', -- new | replied | skipped
+  pushed_at timestamptz,
+  created_at timestamptz default now()
+);
+create index if not exists leads_score_idx on leads (lead_score desc);
+create index if not exists leads_created_idx on leads (created_at desc);
+
+create table if not exists devices (
+  id uuid primary key default gen_random_uuid(),
+  expo_push_token text unique not null,
+  label text,
+  created_at timestamptz default now()
+);
+
+-- Server (service role) access only; no client policies on purpose.
+alter table leads enable row level security;
+alter table devices enable row level security;
