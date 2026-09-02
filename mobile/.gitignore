@@ -40,3 +40,9 @@ yarn-error.*
 credentials/
 credentials.json
 play-service-account.json
+
+# Apple secrets
+AuthKey_*.p8
+credentials/
+credentials.json
+expo-start.log

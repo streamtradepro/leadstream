@@ -18,10 +18,20 @@
     },
     "production": {
       "autoIncrement": true,
-      "channel": "production"
+      "channel": "production",
+      "ios": {
+        "credentialsSource": "local"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascApiKeyPath": "./AuthKey_7JM7NWVAXC.p8",
+        "ascApiKeyId": "7JM7NWVAXC",
+        "ascApiKeyIssuerId": "3903feef-a611-45da-a4e7-2c4846c810f7",
+        "appleTeamId": "67TYRDWHZ5"
+      }
+    }
   }
 }
