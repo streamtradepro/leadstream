@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Device from 'expo-device';
+import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 import { Button, Card, Label } from '../components/ui';
 import { fetchLeads, runScan, errorMessage } from '../lib/api';
 import { DEFAULT_BASE_URL, normalizeBaseUrl } from '../lib/config';
@@ -42,6 +44,32 @@ export default function SettingsScreen() {
 
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState<string | null>(null);
+
+  async function onCheckUpdate() {
+    setCheckingUpdate(true);
+    setUpdateMsg(null);
+    try {
+      if (!Updates.isEnabled) {
+        setUpdateMsg('Updates are off in development builds.');
+        return;
+      }
+      const res = await Updates.checkForUpdateAsync();
+      if (!res.isAvailable) {
+        setUpdateMsg("You're on the latest version.");
+        return;
+      }
+      setUpdateMsg('Downloading update…');
+      await Updates.fetchUpdateAsync();
+      await Updates.reloadAsync(); // restarts into the new bundle
+    } catch (err) {
+      setUpdateMsg(`Couldn't check: ${(err as Error).message}`);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
 
   // Sync inputs once the stored config arrives (Settings can mount before SecureStore is read).
   useEffect(() => {
@@ -217,6 +245,20 @@ export default function SettingsScreen() {
               Fetched {scanResult.fetched} · New {scanResult.new} · Hot {scanResult.hot}
             </Text>
           ) : null}
+        </Card>
+
+        <Card style={styles.card}>
+          <Label>App updates</Label>
+          <Row k="Version" v={`${Constants.expoConfig?.version ?? '?'} (build ${Constants.expoConfig?.ios?.buildNumber ?? Constants.nativeBuildVersion ?? '?'})`} />
+          <Row k="Update" v={Updates.updateId ? Updates.updateId.slice(0, 8) : 'embedded'} mono />
+          <Button
+            title={checkingUpdate ? 'Checking…' : 'Check for updates'}
+            onPress={onCheckUpdate}
+            loading={checkingUpdate}
+            style={styles.btn}
+            icon="⬇️"
+          />
+          {updateMsg ? <Text style={styles.result}>{updateMsg}</Text> : null}
         </Card>
 
         <Text style={styles.footer}>

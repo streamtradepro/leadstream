@@ -3,6 +3,7 @@ import { Linking } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
+import * as Updates from 'expo-updates';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StoreProvider, useStore } from '../lib/store';
 import { ToastProvider } from '../lib/toast';
@@ -19,6 +20,20 @@ function Boot() {
   const { configLoaded, configured, ensureByRedditId } = useStore();
   const registeredOnce = useRef(false);
   const lastHandled = useRef<string | null>(null);
+
+  // Silent OTA check on launch: download in the background, apply on next start
+  // (Settings has a manual "Check for updates" that applies immediately).
+  useEffect(() => {
+    if (!Updates.isEnabled) return;
+    (async () => {
+      try {
+        const check = await Updates.checkForUpdateAsync();
+        if (check.isAvailable) await Updates.fetchUpdateAsync();
+      } catch {
+        // offline or dev build — ignore
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (!configLoaded || !configured || registeredOnce.current) return;
