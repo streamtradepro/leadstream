@@ -49,7 +49,7 @@ export default async function Home() {
           <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
             <strong style={{ color: scoreColor(l.lead_score) }}>{l.lead_score}</strong>
             <span style={{ color: '#8b949e', fontSize: 12 }}>
-              {l.intent} · r/{l.subreddit}
+              {l.category ? l.category.replace('_', ' ') + ' · ' : ''}{l.intent} · r/{l.subreddit}
               {(l.city || l.state) && ` · ${[l.city, l.state].filter(Boolean).join(', ')}`}
             </span>
             <span style={{ color: '#484f58', fontSize: 12 }}>

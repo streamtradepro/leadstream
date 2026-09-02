@@ -10,6 +10,7 @@ export interface Lead {
   posted_at: string | null;
   reddit_score: number | null;
   intent: 'service' | 'diy' | 'noise' | null;
+  category: 'garage_door' | 'gate' | 'locksmith' | 'dryer_vent' | 'air_duct' | 'chimney' | 'other' | null;
   location_raw: string | null;
   city: string | null;
   state: string | null;
@@ -26,6 +27,16 @@ export interface ScanResult {
   new: number;
   hot: number;
 }
+
+export const CATEGORY_LABEL: Record<string, string> = {
+  garage_door: '🚪 Garage door',
+  gate: '🚧 Gate',
+  locksmith: '🔑 Locksmith',
+  dryer_vent: '🔥 Dryer vent',
+  air_duct: '🌬️ Air duct',
+  chimney: '🏠 Chimney',
+  other: 'Other',
+};
 
 /** "Fort Lauderdale, FL" — or "r/garagedoors" when no location was extracted. */
 export function leadPlace(lead: Lead): string {

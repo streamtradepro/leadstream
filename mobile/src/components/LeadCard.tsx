@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../lib/theme';
 import { relativeTime } from '../lib/time';
-import { leadPlace, type Lead } from '../lib/types';
+import { CATEGORY_LABEL, leadPlace, type Lead } from '../lib/types';
 import type { HandledStatus } from '../lib/handled';
 import { Chip, IntentChip, ScoreBadge } from './ui';
 
@@ -24,6 +24,9 @@ function LeadCardInner({ lead, handled, onPress }: Props) {
         <View style={styles.meta}>
           <View style={styles.metaTop}>
             <IntentChip intent={lead.intent} />
+            {lead.category && lead.category !== 'other' ? (
+              <Chip label={CATEGORY_LABEL[lead.category] ?? lead.category} color={colors.accent} />
+            ) : null}
             {handled ? (
               <Chip label={handled === 'replied' ? 'REPLIED' : 'SKIPPED'} color={colors.faint} />
             ) : null}

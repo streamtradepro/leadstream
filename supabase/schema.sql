@@ -62,3 +62,8 @@ create table if not exists call_taps (
 );
 create index if not exists call_taps_created_idx on call_taps (created_at desc);
 alter table call_taps enable row level security;
+
+-- Multi-category (2026-09-02): garage_door | gate | locksmith | dryer_vent | air_duct | chimney | other
+alter table leads add column if not exists category text;
+create index if not exists leads_category_idx on leads (category);
+create index if not exists leads_state_idx on leads (state);
