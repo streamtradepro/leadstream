@@ -48,3 +48,17 @@ create table if not exists site_leads (
   created_at timestamptz default now()
 );
 alter table site_leads enable row level security;
+
+-- Call-button taps on usahomerepairs.net (city from link/IP geo) — where calls originate.
+create table if not exists call_taps (
+  id uuid primary key default gen_random_uuid(),
+  city text,
+  state text,
+  geo_source text,   -- link | geo | null
+  page text,
+  label text,
+  user_agent text,
+  created_at timestamptz default now()
+);
+create index if not exists call_taps_created_idx on call_taps (created_at desc);
+alter table call_taps enable row level security;
