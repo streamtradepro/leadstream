@@ -38,10 +38,13 @@
     ],
     "extra": {
       "router": {},
-      "eas": {}
+      "eas": {
+        "projectId": "aa57a263-c741-40a8-ae52-48d129aa491c"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"
-    }
+    },
+    "owner": "tradestreammarketing"
   }
 }
