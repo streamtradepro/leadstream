@@ -33,3 +33,18 @@ create table if not exists devices (
 -- Server (service role) access only; no client policies on purpose.
 alter table leads enable row level security;
 alter table devices enable row level security;
+
+-- Website form submissions (usahomerepairs.net) — pushed to the phone like Reddit leads.
+create table if not exists site_leads (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  phone text,
+  email text,
+  zip text,
+  service text,
+  message text,
+  source text default 'website',
+  status text default 'new',
+  created_at timestamptz default now()
+);
+alter table site_leads enable row level security;
