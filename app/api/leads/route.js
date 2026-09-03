@@ -14,6 +14,8 @@ export async function GET(req) {
   const category = url.searchParams.get('category') || '';
   let q = db().from('leads').select('*').neq('intent', 'noise').neq('status', 'skipped').neq('category', 'other');
   if (states.length) q = q.in('state', states);
+  const minScore = Number(process.env.LEAD_MIN_SCORE) || 0;
+  if (minScore) q = q.gte('lead_score', minScore);
   if (category) q = q.eq('category', category);
   const { data, error } = await q.order('created_at', { ascending: false }).limit(200);
   if (error) return Response.json({ error: error.message }, { status: 500 });
