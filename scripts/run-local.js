@@ -6,7 +6,10 @@ const { runScan } = await import('../lib/scan.js');
 
 const once = process.argv.includes('--once');
 
+let running = false;
 async function tick() {
+  if (running) return; // never overlap scans
+  running = true;
   const t0 = Date.now();
   try {
     const r = await runScan();
@@ -17,6 +20,8 @@ async function tick() {
     );
   } catch (e) {
     console.error(new Date().toISOString(), 'scan error:', e.message);
+  } finally {
+    running = false;
   }
 }
 
