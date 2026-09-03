@@ -1,0 +1,6 @@
+◇ injected env (17) from .env.local // tip: ⌘ multiple files { path: ['.env.local', '.env'] }
+◇ injected env (0) from .env // tip: ⌘ suppress logs { quiet: true }
+feed failed (https://www.reddit.com/r/boca/search.rss?q=%22garage%20door%22%20OR%20locksmith%): RSS https://www.reddit.com/r/boca/search.rss?q=%22garage%20door%22%20OR%20locksmith%20OR%20%22locked%20out%22%20OR%20rekey%20OR%20deadbolt%20OR%20%22dryer%20vent%22%20OR%20%22duct%20cleaning%22%20OR%20%22air%20duct%22%20OR%20chimney%20OR%20%22gate%20opener%22%20OR%20%22driveway%20gate%22%20OR%20%22automatic%20gate%22&restrict_sr=on&sort=new&limit=50 failed: 404
+feed failed (https://www.reddit.com/r/Daytona/search.rss?q=%22garage%20door%22%20OR%20locksmi): RSS https://www.reddit.com/r/Daytona/search.rss?q=%22garage%20door%22%20OR%20locksmith%20OR%20%22locked%20out%22%20OR%20rekey%20OR%20deadbolt%20OR%20%22dryer%20vent%22%20OR%20%22duct%20cleaning%22%20OR%20%22air%20duct%22%20OR%20chimney%20OR%20%22gate%20opener%22%20OR%20%22driveway%20gate%22%20OR%20%22automatic%20gate%22&restrict_sr=on&sort=new&limit=50 failed: 404
+feeds ok 39/41, candidates 349
+2026-09-03T00:05:56.473Z fetched=349 new=254 hot=0 2809.1s
