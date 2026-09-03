@@ -88,6 +88,11 @@ export async function draftReply(id: string): Promise<string> {
   return json.reply;
 }
 
+/** POST /api/lead-status → persists replied/skipped/new on the server (hides skipped from every device). */
+export function setLeadStatus(id: string, status: 'new' | 'replied' | 'skipped'): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>('/api/lead-status', { method: 'POST', body: { id, status } });
+}
+
 /** POST /api/devices → upserts an Expo push token. */
 export function registerDevice(token: string, label: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>('/api/devices', { method: 'POST', body: { token, label } });

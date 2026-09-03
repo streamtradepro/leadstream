@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { Redirect, Stack, useFocusEffect, useRouter } from 'expo-router';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { LeadCard } from '../components/LeadCard';
 import { FilterChip } from '../components/ui';
 import { isAuthError, errorMessage } from '../lib/api';
@@ -16,7 +17,7 @@ const REFRESH_MS = 60_000;
 export default function LeadsScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { configLoaded, configured, leads, loading, error, lastUpdated, refresh, handled } = useStore();
+  const { configLoaded, configured, leads, loading, error, lastUpdated, refresh, handled, dismissLead } = useStore();
   const [filter, setFilter] = useState<Filter>('all');
   const [pulling, setPulling] = useState(false);
   const lastErrorShown = useRef<string | null>(null);
@@ -84,6 +85,13 @@ export default function LeadsScreen() {
   }, [leads, filter, handled]);
 
   const openLead = useCallback((lead: Lead) => router.push(`/lead/${lead.id}`), [router]);
+  const onDelete = useCallback(
+    (lead: Lead) => {
+      dismissLead(lead.id);
+      toast.show('Lead deleted', 'info');
+    },
+    [dismissLead, toast],
+  );
 
   if (!configLoaded) {
     return (
@@ -122,7 +130,26 @@ export default function LeadsScreen() {
       <FlatList
         data={data}
         keyExtractor={(l) => l.id}
-        renderItem={({ item }) => <LeadCard lead={item} handled={handled[item.id]} onPress={openLead} />}
+        renderItem={({ item }) => (
+          <ReanimatedSwipeable
+            friction={2}
+            rightThreshold={48}
+            overshootRight={false}
+            renderRightActions={() => (
+              <Pressable
+                onPress={() => onDelete(item)}
+                style={styles.deleteAction}
+                accessibilityRole="button"
+                accessibilityLabel="Delete lead"
+              >
+                <Text style={styles.deleteIcon}>🗑️</Text>
+                <Text style={styles.deleteText}>Delete</Text>
+              </Pressable>
+            )}
+          >
+            <LeadCard lead={item} handled={handled[item.id]} onPress={openLead} />
+          </ReanimatedSwipeable>
+        )}
         contentContainerStyle={data.length === 0 ? styles.emptyWrap : styles.listContent}
         refreshControl={
           <RefreshControl refreshing={pulling} onRefresh={onPull} tintColor={colors.accent} colors={[colors.accent]} />
@@ -187,4 +214,16 @@ const styles = StyleSheet.create({
   emptyBody: { color: colors.muted, textAlign: 'center', lineHeight: 20 },
   link: { color: colors.blue, fontWeight: '600', marginTop: 4 },
   stale: { color: colors.yellow, fontSize: 12, textAlign: 'center', paddingBottom: 8 },
+  deleteAction: {
+    width: 92,
+    marginBottom: 10,
+    marginRight: 12,
+    borderRadius: 12,
+    backgroundColor: colors.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  deleteIcon: { fontSize: 20 },
+  deleteText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });

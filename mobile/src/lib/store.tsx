@@ -4,7 +4,7 @@
  * look leads up without prop drilling.
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchLeads, errorMessage } from './api';
+import { fetchLeads, errorMessage, setLeadStatus } from './api';
 import { isConfigured, loadConfig, saveConfig, type AppConfig } from './config';
 import { statusStore, type HandledMap, type HandledStatus } from './handled';
 import type { Lead } from './types';
@@ -24,6 +24,8 @@ interface StoreState {
 
   handled: HandledMap;
   setStatus: (id: string, status: HandledStatus | null) => Promise<void>;
+  /** Swipe-delete: mark skipped everywhere and drop it from the list. */
+  dismissLead: (id: string) => Promise<void>;
 
   getById: (id: string) => Lead | undefined;
   findByRedditId: (redditId: string) => Lead | undefined;
@@ -101,6 +103,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const setStatus = useCallback(async (id: string, status: HandledStatus | null) => {
     const map = await statusStore.set(id, status);
     setHandled({ ...map });
+    // Mirror to the server so status survives reinstalls and other phones (best effort).
+    setLeadStatus(id, status ?? 'new').catch(() => {});
+  }, []);
+
+  const dismissLead = useCallback(async (id: string) => {
+    setLeads((prev) => prev.filter((l) => l.id !== id));
+    const map = await statusStore.set(id, 'skipped');
+    setHandled({ ...map });
+    setLeadStatus(id, 'skipped').catch(() => {});
   }, []);
 
   const getById = useCallback((id: string) => leadsRef.current.find((l) => l.id === id), []);
@@ -138,6 +149,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       refresh,
       handled,
       setStatus,
+      dismissLead,
       getById,
       findByRedditId,
       ensureByRedditId,
@@ -155,6 +167,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       refresh,
       handled,
       setStatus,
+      dismissLead,
       getById,
       findByRedditId,
       ensureByRedditId,
