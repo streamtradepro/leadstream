@@ -28,6 +28,8 @@ export async function POST(req) {
     geo_source: clean(body.geo_source, 20),
     page: clean(body.page, 200),
     label: clean(body.label, 60),
+    source: clean(body.source, 40),
+    campaign: clean(body.campaign, 80),
     user_agent: clean(req.headers.get('user-agent'), 200),
   };
   const { error } = await db().from('call_taps').insert(row);
