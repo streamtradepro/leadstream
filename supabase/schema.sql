@@ -67,3 +67,6 @@ alter table call_taps enable row level security;
 alter table leads add column if not exists category text;
 create index if not exists leads_category_idx on leads (category);
 create index if not exists leads_state_idx on leads (state);
+
+-- Reddit click id (rdt_cid) captured on landing, sent with call taps (2026-09-08)
+alter table call_taps add column if not exists click_id text;
