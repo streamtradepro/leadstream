@@ -1,11 +1,11 @@
 import { db } from '../../../lib/db.js';
+import { authenticate, unauthorized } from '../../../lib/auth.js';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req) {
-  if (req.headers.get('x-app-secret') !== process.env.APP_SECRET) {
-    return Response.json({ error: 'unauthorized' }, { status: 401 });
-  }
+  const auth = await authenticate(req);
+  if (!auth) return unauthorized();
   const url = new URL(req.url);
   // Default view = the states we're actively working (LEAD_STATES, else PUSH_STATES); ?state=all overrides.
   const defaultStates = (process.env.LEAD_STATES || process.env.PUSH_STATES || '').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
@@ -19,5 +19,5 @@ export async function GET(req) {
   if (category) q = q.eq('category', category);
   const { data, error } = await q.order('created_at', { ascending: false }).limit(200);
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ leads: data });
+  return Response.json({ leads: data, me: auth.staff });
 }

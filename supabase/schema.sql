@@ -70,3 +70,22 @@ create index if not exists leads_state_idx on leads (state);
 
 -- Reddit click id (rdt_cid) captured on landing, sent with call taps (2026-09-08)
 alter table call_taps add column if not exists click_id text;
+
+-- Staff accounts for the phone app (2026-09-08). Password = scrypt "salt:hex"; tokens are HMAC(APP_SECRET).
+create table if not exists staff (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text unique not null,
+  password_hash text not null,
+  role text not null default 'staff',   -- owner | staff
+  active boolean not null default true,
+  token_version int not null default 1, -- bump to sign the person out everywhere
+  last_seen_at timestamptz,
+  created_at timestamptz default now()
+);
+alter table staff enable row level security;
+alter table leads add column if not exists handled_by text;
+alter table leads add column if not exists handled_by_id uuid;
+alter table leads add column if not exists handled_at timestamptz;
+alter table devices add column if not exists staff_id uuid;
+alter table devices add column if not exists staff_name text;
