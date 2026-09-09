@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "416695748980",
+    "project_id": "leadstream-eb055",
+    "storage_bucket": "leadstream-eb055.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416695748980:android:e4c24a2ac58727660c8421",
+        "android_client_info": {
+          "package_name": "com.tradestream.leadstream"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCpISsr_XvMa8IrJvc-xug9gb9IFVX7aXg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
