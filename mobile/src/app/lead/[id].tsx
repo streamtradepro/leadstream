@@ -15,7 +15,7 @@ export default function LeadDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
-  const { getById, leads, handled, setStatus, patchLead, refresh, loading } = useStore();
+  const { getById, leads, handled, setStatus, patchLead, refresh, loading, me } = useStore();
   const lead = id ? getById(id) : undefined;
   const status = id ? handled[id] : undefined;
 
@@ -119,7 +119,12 @@ export default function LeadDetailScreen() {
         <View style={styles.headMeta}>
           <View style={styles.chips}>
             <IntentChip intent={lead.intent} />
-            {status ? <Chip label={status === 'replied' ? 'REPLIED' : 'SKIPPED'} color={colors.faint} /> : null}
+            {status ? (
+              <Chip
+                label={`${status === 'replied' ? 'REPLIED' : 'SKIPPED'}${lead.handled_by ? ' · ' + (me && lead.handled_by_id === me.id ? 'YOU' : lead.handled_by.toUpperCase()) : ''}`}
+                color={colors.faint}
+              />
+            ) : null}
           </View>
           <Text style={styles.place}>{leadPlace(lead)}</Text>
           {lead.location_raw && lead.location_raw !== leadPlace(lead) ? (

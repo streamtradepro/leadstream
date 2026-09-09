@@ -11,13 +11,13 @@ import { relativeTime } from '../lib/time';
 import { useToast } from '../lib/toast';
 import type { Lead } from '../lib/types';
 
-type Filter = 'all' | 'hot' | 'service' | 'unhandled';
+type Filter = 'all' | 'hot' | 'service' | 'unhandled' | 'mine';
 const REFRESH_MS = 60_000;
 
 export default function LeadsScreen() {
   const router = useRouter();
   const toast = useToast();
-  const { configLoaded, configured, leads, loading, error, lastUpdated, refresh, handled, dismissLead } = useStore();
+  const { sessionLoaded, signedIn, me, leads, loading, error, lastUpdated, refresh, handled, dismissLead } = useStore();
   const [filter, setFilter] = useState<Filter>('all');
   const [pulling, setPulling] = useState(false);
   const lastErrorShown = useRef<string | null>(null);
@@ -29,7 +29,7 @@ export default function LeadsScreen() {
       await refresh();
       lastErrorShown.current = null;
     } catch (e) {
-      const msg = isAuthError(e) ? 'Unauthorized — check the App Secret in Settings.' : errorMessage(e);
+      const msg = isAuthError(e) ? 'Signed out — please sign in again.' : errorMessage(e);
       if (lastErrorShown.current !== msg) {
         lastErrorShown.current = msg;
         toast.show(msg, 'error');
@@ -40,7 +40,7 @@ export default function LeadsScreen() {
   // Refresh on focus + every 60s while focused.
   useFocusEffect(
     useCallback(() => {
-      if (!configured) return;
+      if (!signedIn) return;
       safeRefresh();
       const id = setInterval(safeRefresh, REFRESH_MS);
       const clock = setInterval(() => tick((n) => n + 1), 30_000);
@@ -48,7 +48,7 @@ export default function LeadsScreen() {
         clearInterval(id);
         clearInterval(clock);
       };
-    }, [configured, safeRefresh]),
+    }, [signedIn, safeRefresh]),
   );
 
   useEffect(() => {
@@ -65,24 +65,27 @@ export default function LeadsScreen() {
     let hot = 0;
     let service = 0;
     let unhandled = 0;
+    let mine = 0;
     for (const l of leads) {
+      if (me && l.handled_by_id === me.id) mine++;
       if ((l.lead_score ?? 0) >= HOT_THRESHOLD) hot++;
       if (l.intent === 'service') service++;
       if (!handled[l.id]) unhandled++;
     }
-    return { all: leads.length, hot, service, unhandled };
-  }, [leads, handled]);
+    return { all: leads.length, hot, service, unhandled, mine };
+  }, [leads, handled, me]);
 
   const data = useMemo(() => {
     let list = leads;
     if (filter === 'hot') list = list.filter((l) => (l.lead_score ?? 0) >= HOT_THRESHOLD);
     else if (filter === 'service') list = list.filter((l) => l.intent === 'service');
     else if (filter === 'unhandled') list = list.filter((l) => !handled[l.id]);
+    else if (filter === 'mine') list = list.filter((l) => !!me && l.handled_by_id === me.id);
     // Server order is newest-first; push handled leads to the bottom, dimmed.
     const open = list.filter((l) => !handled[l.id]);
     const done = filter === 'unhandled' ? [] : list.filter((l) => !!handled[l.id]);
     return [...open, ...done];
-  }, [leads, filter, handled]);
+  }, [leads, filter, handled, me]);
 
   const openLead = useCallback((lead: Lead) => router.push(`/lead/${lead.id}`), [router]);
   const onDelete = useCallback(
@@ -93,14 +96,14 @@ export default function LeadsScreen() {
     [dismissLead, toast],
   );
 
-  if (!configLoaded) {
+  if (!sessionLoaded) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={colors.accent} />
       </View>
     );
   }
-  if (!configured) return <Redirect href="/settings" />;
+  if (!signedIn) return <Redirect href="/login" />;
 
   return (
     <View style={styles.screen}>
@@ -125,6 +128,7 @@ export default function LeadsScreen() {
         <FilterChip label="🔥 Hot" count={counts.hot} active={filter === 'hot'} onPress={() => setFilter('hot')} />
         <FilterChip label="Service" count={counts.service} active={filter === 'service'} onPress={() => setFilter('service')} />
         <FilterChip label="Unhandled" count={counts.unhandled} active={filter === 'unhandled'} onPress={() => setFilter('unhandled')} />
+        <FilterChip label="Mine" count={counts.mine} active={filter === 'mine'} onPress={() => setFilter('mine')} />
       </View>
 
       <FlatList
@@ -147,7 +151,7 @@ export default function LeadsScreen() {
               </Pressable>
             )}
           >
-            <LeadCard lead={item} handled={handled[item.id]} onPress={openLead} />
+            <LeadCard lead={item} handled={handled[item.id]} onPress={openLead} me={me?.id ?? null} />
           </ReanimatedSwipeable>
         )}
         contentContainerStyle={data.length === 0 ? styles.emptyWrap : styles.listContent}
@@ -190,7 +194,7 @@ function EmptyState({ filter, error, onRetry }: { filter: Filter; error: string 
       <Text style={styles.emptyBody}>
         {filtered
           ? 'Try "All" to see everything the scanner has found.'
-          : 'The scanner runs automatically every 30 minutes and pushes hot leads (score ≥ 70) to this phone. Pull down to refresh, or trigger a scan from Settings.'}
+          : 'Reddit is scanned automatically every 10 minutes and hot leads (score ≥ 70) are pushed to this phone. Pull down to refresh.'}
       </Text>
     </View>
   );

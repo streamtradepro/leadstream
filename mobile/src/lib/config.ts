@@ -1,51 +1,45 @@
 /**
- * API base URL + app secret, kept in the device keychain (expo-secure-store).
- * The secret never touches AsyncStorage or the JS bundle.
+ * Signed-in session (staff token + profile), kept in the device keychain
+ * (expo-secure-store). The API base URL is fixed; EXPO_PUBLIC_API_URL can
+ * override it at build time for a staging backend.
  */
 import * as SecureStore from 'expo-secure-store';
 
-export interface AppConfig {
-  baseUrl: string;
-  appSecret: string;
+export interface Staff {
+  id: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'staff';
 }
 
-export const DEFAULT_BASE_URL = 'https://leadstream-murex.vercel.app';
-
-const KEY_URL = 'ls_base_url';
-const KEY_SECRET = 'ls_app_secret';
-
-let cache: AppConfig | null = null;
-
-export function normalizeBaseUrl(input: string): string {
-  let url = input.trim();
-  if (!url) return '';
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-  return url.replace(/\/+$/, '');
+export interface Session {
+  token: string;
+  staff: Staff;
 }
 
-export async function loadConfig(): Promise<AppConfig> {
-  if (cache) return cache;
-  const [url, secret] = await Promise.all([
-    SecureStore.getItemAsync(KEY_URL),
-    SecureStore.getItemAsync(KEY_SECRET),
-  ]);
-  cache = { baseUrl: url || DEFAULT_BASE_URL, appSecret: secret || '' };
+export const BASE_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://leadstream-murex.vercel.app').replace(/\/+$/, '');
+
+const KEY_SESSION = 'ls_session_v1';
+// Legacy keys from the app-secret era — cleared on first run of this version.
+const LEGACY_KEYS = ['ls_base_url', 'ls_app_secret'];
+
+let cache: Session | null | undefined;
+
+export async function loadSession(): Promise<Session | null> {
+  if (cache !== undefined) return cache;
+  try {
+    const raw = await SecureStore.getItemAsync(KEY_SESSION);
+    const parsed = raw ? (JSON.parse(raw) as Session) : null;
+    cache = parsed && parsed.token && parsed.staff ? parsed : null;
+  } catch {
+    cache = null;
+  }
+  LEGACY_KEYS.forEach((k) => SecureStore.deleteItemAsync(k).catch(() => {}));
   return cache;
 }
 
-export async function saveConfig(next: AppConfig): Promise<AppConfig> {
-  const clean: AppConfig = {
-    baseUrl: normalizeBaseUrl(next.baseUrl) || DEFAULT_BASE_URL,
-    appSecret: next.appSecret.trim(),
-  };
-  await Promise.all([
-    SecureStore.setItemAsync(KEY_URL, clean.baseUrl),
-    SecureStore.setItemAsync(KEY_SECRET, clean.appSecret),
-  ]);
-  cache = clean;
-  return clean;
-}
-
-export function isConfigured(c: AppConfig | null | undefined): boolean {
-  return !!c && !!c.baseUrl && !!c.appSecret;
+export async function saveSession(next: Session | null): Promise<void> {
+  cache = next;
+  if (next) await SecureStore.setItemAsync(KEY_SESSION, JSON.stringify(next));
+  else await SecureStore.deleteItemAsync(KEY_SESSION).catch(() => {});
 }

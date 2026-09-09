@@ -1,8 +1,8 @@
 /**
  * Calls to the LeadStream backend (Next.js at the repo root). Every route is
- * gated by the `x-app-secret` header — see app/api/** in the backend.
+ * gated by a staff token (`Authorization: Bearer …`) issued by /api/auth/login.
  */
-import { loadConfig, type AppConfig } from './config';
+import { BASE_URL, loadSession, saveSession, type Session, type Staff } from './config';
 import type { Lead, ScanResult } from './types';
 
 export class ApiError extends Error {
@@ -27,14 +27,22 @@ interface RequestOptions {
   body?: unknown;
   /** Abort after this many ms. Default 20s. */
   timeoutMs?: number;
-  /** Override the stored config (used by Settings "Save & test"). */
-  config?: AppConfig;
+  /** Skip the session (login itself). */
+  anonymous?: boolean;
+}
+
+/** Called when the server rejects the token (deactivated, password reset, expired). */
+let onSignedOut: (() => void) | null = null;
+export function setSignedOutHandler(fn: (() => void) | null) {
+  onSignedOut = fn;
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const cfg = opts.config ?? (await loadConfig());
-  if (!cfg.appSecret) {
-    throw new ApiError(0, 'Not set up yet — add the API URL and App Secret in Settings.');
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (!opts.anonymous) {
+    const session = await loadSession();
+    if (!session) throw new ApiError(401, 'Please sign in.');
+    headers.Authorization = `Bearer ${session.token}`;
   }
 
   const controller = new AbortController();
@@ -42,28 +50,27 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   let res: Response;
   try {
-    res = await fetch(`${cfg.baseUrl}${path}`, {
+    res = await fetch(`${BASE_URL}${path}`, {
       method: opts.method ?? 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-app-secret': cfg.appSecret,
-      },
+      headers,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
       signal: controller.signal,
     });
   } catch {
-    throw new ApiError(
-      0,
-      controller.signal.aborted
-        ? 'Request timed out.'
-        : 'Network error — check the API URL and your connection.',
-    );
+    throw new ApiError(0, controller.signal.aborted ? 'Request timed out.' : 'Network error — check your connection.');
   } finally {
     clearTimeout(timer);
   }
 
   const json = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  if (res.status === 401) throw new ApiError(401, 'Unauthorized — the App Secret is wrong.');
+  if (res.status === 401) {
+    if (!opts.anonymous) {
+      await saveSession(null);
+      onSignedOut?.();
+      throw new ApiError(401, 'Your sign-in is no longer valid. Please sign in again.');
+    }
+    throw new ApiError(401, typeof json.error === 'string' ? json.error : 'Wrong email or password.');
+  }
   if (!res.ok) {
     const msg = typeof json.error === 'string' ? json.error : `Request failed (${res.status})`;
     throw new ApiError(res.status, msg);
@@ -71,9 +78,20 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   return json as T;
 }
 
+/** POST /api/auth/login → token + profile. */
+export async function login(email: string, password: string): Promise<Session> {
+  const json = await request<{ token?: string; staff?: Staff }>('/api/auth/login', {
+    method: 'POST',
+    body: { email, password },
+    anonymous: true,
+  });
+  if (!json.token || !json.staff) throw new ApiError(500, 'Server returned no session.');
+  return { token: json.token, staff: json.staff };
+}
+
 /** GET /api/leads → latest 200 non-noise leads, newest first. */
-export async function fetchLeads(config?: AppConfig): Promise<Lead[]> {
-  const json = await request<{ leads?: Lead[] }>('/api/leads', { config });
+export async function fetchLeads(): Promise<Lead[]> {
+  const json = await request<{ leads?: Lead[] }>('/api/leads');
   return Array.isArray(json.leads) ? json.leads : [];
 }
 
@@ -88,17 +106,17 @@ export async function draftReply(id: string): Promise<string> {
   return json.reply;
 }
 
-/** POST /api/lead-status → persists replied/skipped/new on the server (hides skipped from every device). */
+/** POST /api/lead-status → persists replied/skipped/new on the server, with who did it. */
 export function setLeadStatus(id: string, status: 'new' | 'replied' | 'skipped'): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>('/api/lead-status', { method: 'POST', body: { id, status } });
 }
 
-/** POST /api/devices → upserts an Expo push token. */
+/** POST /api/devices → upserts an Expo push token for this staff member. */
 export function registerDevice(token: string, label: string): Promise<{ ok: boolean }> {
   return request<{ ok: boolean }>('/api/devices', { method: 'POST', body: { token, label } });
 }
 
-/** POST /api/scan → runs a full scan. Can take up to 5 minutes (maxDuration 300). */
+/** POST /api/scan → runs a full scan (owner only). Can take up to 5 minutes. */
 export function runScan(): Promise<ScanResult> {
   return request<ScanResult>('/api/scan', { method: 'POST', timeoutMs: 330_000 });
 }

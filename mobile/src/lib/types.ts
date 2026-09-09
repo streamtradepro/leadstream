@@ -18,6 +18,9 @@ export interface Lead {
   reasoning: string | null;
   reply_draft: string | null;
   status: 'new' | 'replied' | 'skipped' | null;
+  handled_by: string | null;
+  handled_by_id: string | null;
+  handled_at: string | null;
   pushed_at: string | null;
   created_at: string | null;
 }

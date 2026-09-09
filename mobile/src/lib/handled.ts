@@ -1,11 +1,7 @@
 /**
- * Local "handled" status for leads (replied / skipped).
- *
- * The backend has no status-update endpoint yet, so the app remembers which
- * leads the owner dealt with in AsyncStorage. Everything goes through the
- * `StatusStore` interface — when a server route exists (e.g. POST
- * /api/leads/:id/status), implement a second store and swap `statusStore`
- * below; the UI does not care where the map comes from.
+ * Local "handled" status for leads (replied / skipped) — the phone's own marks,
+ * kept in AsyncStorage so they survive being offline. The server copy
+ * (POST /api/lead-status, with who did it) is merged on top in the store.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

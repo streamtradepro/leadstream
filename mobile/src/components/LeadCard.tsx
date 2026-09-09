@@ -10,9 +10,12 @@ interface Props {
   lead: Lead;
   handled?: HandledStatus;
   onPress: (lead: Lead) => void;
+  /** Signed-in staff id, to label the chip "YOU" vs a name. */
+  me?: string | null;
 }
 
-function LeadCardInner({ lead, handled, onPress }: Props) {
+function LeadCardInner({ lead, handled, onPress, me }: Props) {
+  const who = lead.handled_by ? (me && lead.handled_by_id === me ? 'YOU' : lead.handled_by.toUpperCase()) : null;
   return (
     <Pressable
       onPress={() => onPress(lead)}
@@ -28,7 +31,7 @@ function LeadCardInner({ lead, handled, onPress }: Props) {
               <Chip label={CATEGORY_LABEL[lead.category] ?? lead.category} color={colors.accent} />
             ) : null}
             {handled ? (
-              <Chip label={handled === 'replied' ? 'REPLIED' : 'SKIPPED'} color={colors.faint} />
+              <Chip label={`${handled === 'replied' ? 'REPLIED' : 'SKIPPED'}${who ? ' · ' + who : ''}`} color={colors.faint} />
             ) : null}
             <Text style={styles.time}>{relativeTime(lead.posted_at ?? lead.created_at)}</Text>
           </View>

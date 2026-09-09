@@ -17,7 +17,7 @@ import { colors } from '../lib/theme';
  */
 function Boot() {
   const router = useRouter();
-  const { configLoaded, configured, ensureByRedditId } = useStore();
+  const { sessionLoaded, signedIn, ensureByRedditId } = useStore();
   const registeredOnce = useRef(false);
   const lastHandled = useRef<string | null>(null);
 
@@ -36,11 +36,11 @@ function Boot() {
   }, []);
 
   useEffect(() => {
-    if (!configLoaded || !configured || registeredOnce.current) return;
+    if (!sessionLoaded || !signedIn || registeredOnce.current) return;
     registeredOnce.current = true;
     // Permission was already requested during setup; don't re-prompt on start.
     registerForPush({ ask: false }).catch(() => {});
-  }, [configLoaded, configured]);
+  }, [sessionLoaded, signedIn]);
 
   const handleResponse = useCallback(
     async (resp: Notifications.NotificationResponse) => {
@@ -77,7 +77,7 @@ function Boot() {
   );
 
   useEffect(() => {
-    if (!configLoaded) return;
+    if (!sessionLoaded) return;
     const sub = Notifications.addNotificationResponseReceivedListener((r) => {
       handleResponse(r);
     });
@@ -88,7 +88,7 @@ function Boot() {
       })
       .catch(() => {});
     return () => sub.remove();
-  }, [configLoaded, handleResponse]);
+  }, [sessionLoaded, handleResponse]);
 
   return null;
 }
@@ -110,6 +110,7 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="index" options={{ title: 'LeadStream' }} />
+            <Stack.Screen name="login" options={{ headerShown: false }} />
             <Stack.Screen name="settings" options={{ title: 'Settings' }} />
             <Stack.Screen name="lead/[id]" options={{ title: 'Lead' }} />
           </Stack>
