@@ -28,7 +28,11 @@ function Boot() {
     (async () => {
       try {
         const check = await Updates.checkForUpdateAsync();
-        if (check.isAvailable) await Updates.fetchUpdateAsync();
+        if (!check.isAvailable) return;
+        await Updates.fetchUpdateAsync();
+        // Fresh install running the store/TestFlight bundle: switch to the update now instead of next launch,
+        // so a new staff member never sees an outdated screen.
+        if (Updates.isEmbeddedLaunch) await Updates.reloadAsync();
       } catch {
         // offline or dev build — ignore
       }
