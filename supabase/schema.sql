@@ -93,3 +93,7 @@ alter table devices add column if not exists staff_name text;
 -- Login lockout (2026-09-10): 8 wrong passwords → locked 15 minutes.
 alter table staff add column if not exists failed_logins int not null default 0;
 alter table staff add column if not exists locked_until timestamptz;
+
+-- kind = call (button tap) | view (tagged landing-page visit) — lets the dashboard show visits → taps per campaign (2026-09-10)
+alter table call_taps add column if not exists kind text not null default 'call';
+create index if not exists call_taps_kind_idx on call_taps (kind, created_at desc);

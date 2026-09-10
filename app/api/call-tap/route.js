@@ -31,6 +31,7 @@ export async function POST(req) {
     source: clean(body.source, 40),
     campaign: clean(body.campaign, 80),
     click_id: clean(body.click_id, 120),
+    kind: body.kind === 'view' ? 'view' : 'call',
     user_agent: clean(req.headers.get('user-agent'), 200),
   };
   const { error } = await db().from('call_taps').insert(row);
