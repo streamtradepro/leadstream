@@ -89,3 +89,7 @@ alter table leads add column if not exists handled_by_id uuid;
 alter table leads add column if not exists handled_at timestamptz;
 alter table devices add column if not exists staff_id uuid;
 alter table devices add column if not exists staff_name text;
+
+-- Login lockout (2026-09-10): 8 wrong passwords → locked 15 minutes.
+alter table staff add column if not exists failed_logins int not null default 0;
+alter table staff add column if not exists locked_until timestamptz;
