@@ -1,5 +1,3 @@
 @echo off
 cd /d C:\dev\leadstream
-"C:\Program Files
-odejs
-ode.exe" scriptsun-local.js --once >> logs\scanner.log 2>&1
+"C:\Program Files\nodejs\node.exe" scripts\run-local.js --once >> logs\scanner.log 2>&1
