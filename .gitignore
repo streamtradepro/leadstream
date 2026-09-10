@@ -5,3 +5,6 @@ node_modules/
 
 .vercel
 scan.log
+
+# local scanner logs
+logs/
