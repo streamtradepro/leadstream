@@ -39,6 +39,18 @@ function Boot() {
     })();
   }, []);
 
+  // Signed out anywhere (password reset, switched off, expired): go to the sign-in screen from any screen.
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    if (!sessionLoaded) return;
+    if (wasSignedIn.current && !signedIn) {
+      try {
+        router.replace('/login');
+      } catch {}
+    }
+    wasSignedIn.current = signedIn;
+  }, [sessionLoaded, signedIn, router]);
+
   useEffect(() => {
     if (!sessionLoaded || !signedIn || registeredOnce.current) return;
     registeredOnce.current = true;

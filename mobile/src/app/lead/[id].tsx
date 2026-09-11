@@ -84,7 +84,12 @@ export default function LeadDetailScreen() {
   const mark = useCallback(
     async (next: 'replied' | 'skipped') => {
       if (!lead) return;
-      await setStatus(lead.id, status === next ? null : next);
+      try {
+        await setStatus(lead.id, status === next ? null : next);
+      } catch (e) {
+        toast.show(errorMessage(e), 'error');
+        return;
+      }
       if (status !== next) {
         haptic();
         toast.show(next === 'replied' ? 'Marked as replied.' : 'Skipped.', 'success');

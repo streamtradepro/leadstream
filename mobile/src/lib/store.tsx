@@ -4,7 +4,7 @@
  * leads up without prop drilling.
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchLeads, errorMessage, login as apiLogin, setLeadStatus, setSignedOutHandler } from './api';
+import { fetchLeads, errorMessage, isAuthError, login as apiLogin, setLeadStatus, setSignedOutHandler } from './api';
 import { loadSession, saveSession, type Session, type Staff } from './config';
 import { statusStore, type HandledMap, type HandledStatus } from './handled';
 import type { Lead } from './types';
@@ -133,8 +133,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : l,
         ),
       );
-    } catch {
-      /* offline: the local mark still drives the UI */
+    } catch (e) {
+      // Offline: the local mark still drives the UI. Signed out: api.ts already dropped the session
+      // and the layout sends the user to the sign-in screen; surface why the mark did not sync.
+      if (isAuthError(e)) throw e;
     }
   }, [session]);
 
@@ -145,16 +147,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setLeadStatus(id, 'skipped').catch(() => {});
   }, []);
 
-  // Server status wins for "replied" (someone else may have taken it); local marks fill the gaps.
+  // Server status wins for "replied" / "skipped" (someone else may have taken it); this phone's own
+  // marks fill the gaps and are never wiped by the server, so a slow or failed write can't undo a tap.
   const handled = useMemo<HandledMap>(() => {
     const merged: HandledMap = { ...local };
     for (const l of leads) {
       if (l.status === 'replied') merged[l.id] = 'replied';
       else if (l.status === 'skipped') merged[l.id] = 'skipped';
-      else if (l.status === 'new' && merged[l.id] && l.handled_by === null) {
-        // Cleared on the server (someone un-marked it): respect that.
-        delete merged[l.id];
-      }
     }
     return merged;
   }, [leads, local]);
