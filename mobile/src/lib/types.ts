@@ -10,7 +10,7 @@ export interface Lead {
   posted_at: string | null;
   reddit_score: number | null;
   intent: 'service' | 'diy' | 'noise' | null;
-  category: 'garage_door' | 'gate' | 'locksmith' | 'dryer_vent' | 'air_duct' | 'chimney' | 'other' | null;
+  category: 'garage_door' | 'sliding_door' | 'gate' | 'locksmith' | 'dryer_vent' | 'air_duct' | 'chimney' | 'other' | null;
   location_raw: string | null;
   city: string | null;
   state: string | null;
@@ -33,6 +33,7 @@ export interface ScanResult {
 
 export const CATEGORY_LABEL: Record<string, string> = {
   garage_door: '🚪 Garage door',
+  sliding_door: '🪟 Sliding door',
   gate: '🚧 Gate',
   locksmith: '🔑 Locksmith',
   dryer_vent: '🔥 Dryer vent',
