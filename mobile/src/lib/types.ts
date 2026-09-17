@@ -10,7 +10,7 @@ export interface Lead {
   posted_at: string | null;
   reddit_score: number | null;
   intent: 'service' | 'diy' | 'noise' | null;
-  category: 'garage_door' | 'sliding_door' | 'gate' | 'locksmith' | 'dryer_vent' | 'air_duct' | 'chimney' | 'other' | null;
+  category: 'garage_door' | 'sliding_door' | 'gate' | 'locksmith' | 'dryer_vent' | 'air_duct' | 'carpet_cleaning' | 'chimney' | 'other' | null;
   location_raw: string | null;
   city: string | null;
   state: string | null;
@@ -38,6 +38,7 @@ export const CATEGORY_LABEL: Record<string, string> = {
   locksmith: '🔑 Locksmith',
   dryer_vent: '🔥 Dryer vent',
   air_duct: '🌬️ Air duct',
+  carpet_cleaning: '🧽 Carpet cleaning',
   chimney: '🏠 Chimney',
   other: 'Other',
 };
