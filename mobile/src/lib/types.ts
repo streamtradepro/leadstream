@@ -38,7 +38,7 @@ export const CATEGORY_LABEL: Record<string, string> = {
   locksmith: '🔑 Locksmith',
   dryer_vent: '🔥 Dryer vent',
   air_duct: '🌬️ Air duct',
-  carpet_cleaning: '🧽 Carpet cleaning',
+  carpet_cleaning: '🧽 Carpet & tile',
   chimney: '🏠 Chimney',
   other: 'Other',
 };
