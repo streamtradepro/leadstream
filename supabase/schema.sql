@@ -97,3 +97,24 @@ alter table staff add column if not exists locked_until timestamptz;
 -- kind = call (button tap) | view (tagged landing-page visit) — lets the dashboard show visits → taps per campaign (2026-09-10)
 alter table call_taps add column if not exists kind text not null default 'call';
 create index if not exists call_taps_kind_idx on call_taps (kind, created_at desc);
+
+-- Reddit DM outreach (2026-11-08). One row per message in or out, keyed to the lead
+-- it started from. leads.dm_status: null | sent | replied | closed | unreachable.
+create table if not exists reddit_dms (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete set null,
+  reddit_user text not null,
+  direction text not null check (direction in ('out','in')),
+  subject text,
+  body text not null,
+  reddit_message_id text unique,     -- t4_… for messages read from the inbox
+  sent_by text,                      -- 'auto' | 'auto-draft' | staff name
+  status text not null default 'sent', -- queued | sent | failed | received
+  error text,
+  created_at timestamptz not null default now()
+);
+create index if not exists reddit_dms_user_idx on reddit_dms (reddit_user, created_at);
+create index if not exists reddit_dms_lead_idx on reddit_dms (lead_id);
+alter table reddit_dms enable row level security;
+alter table leads add column if not exists dm_status text;
+alter table leads add column if not exists dm_count int not null default 0;
