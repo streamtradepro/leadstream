@@ -14,7 +14,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 import { db } from '../lib/db.js';
 import { draftDm } from '../lib/classify.js';
-import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sleep } from '../lib/gologin.js';
+import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sendLegacyPm, sleep } from '../lib/gologin.js';
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
@@ -51,7 +51,7 @@ async function main() {
       .eq('direction', 'out').eq('status', 'sent').gte('created_at', dayStart.toISOString());
     if ((count || 0) >= CAP) throw new Error(`daily cap reached (${count}/${CAP})`);
     const { count: prior } = await db().from('reddit_dms').select('id', { count: 'exact', head: true })
-      .eq('direction', 'out').eq('reddit_user', user);
+      .eq('direction', 'out').eq('reddit_user', user).eq('status', 'sent');
     if (prior) throw new Error(`already messaged u/${user} before`);
   }
 
@@ -71,14 +71,24 @@ async function main() {
     const me = await redditUser(page);
     if (!me) throw new Error('profile is not logged into Reddit — run scripts/gologin-login.mjs and sign in');
 
-    const r = await sendPrivateMessage(page, { to: user, subject, text, dry: !!args.dry });
+    let r = await sendPrivateMessage(page, { to: user, subject, text, dry: !!args.dry });
+    // Chat request refused (their settings block strangers)? Fall back to a classic
+    // private message, which lands in the old "messages" inbox and is usually open.
+    if (!args.dry && !r.ok && /unable to send a message request|can'?t message that user|Send disabled/i.test(r.error || '')) {
+      console.log('chat request blocked, trying a classic private message…');
+      const pm = await sendLegacyPm(page, { to: user, subject, text });
+      r = pm.ok ? { ok: true, via: 'legacy-pm', note: pm.raw } : { ok: false, error: `chat: ${r.error} | pm: ${pm.error}`, finalUrl: r.finalUrl };
+    }
     if (args.dry) {
       console.log(r.ok ? 'dry run: compose filled, leaving the window open 60s' : 'dry run could not fill compose: ' + r.error);
       await sleep(60_000);
       return;
     }
 
-    const unreachable = /doesn'?t accept|not accepting|can'?t send|blocked|doesn'?t exist|not found|recipient field/i.test(r.error || '');
+    if (!r.ok) console.error('send result:', JSON.stringify(r).slice(0, 800));
+    // "You can't message that user." = their chat settings block strangers; Reddit's
+    // compose page sends a direct CHAT (SendDirectChatToRedditor), not a legacy PM.
+    const unreachable = /unable to send a message request|can'?t message that user|doesn'?t accept|not accepting|can'?t send|blocked|doesn'?t exist|user not found|recipient field|Send disabled/i.test(r.error || '');
     await db().from('reddit_dms').insert({
       lead_id: lead?.id || null, reddit_user: user, direction: 'out', subject, body: text,
       sent_by: args.text ? 'owner' : 'auto', status: r.ok ? 'sent' : 'failed', error: r.ok ? null : r.error,

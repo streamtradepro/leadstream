@@ -15,7 +15,7 @@ config({ path: '.env.local' });
 import { db } from '../lib/db.js';
 import { draftDmFollowup } from '../lib/classify.js';
 import { sendPush } from '../lib/push.js';
-import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sleep, jitter } from '../lib/gologin.js';
+import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sendLegacyPm, sleep, jitter } from '../lib/gologin.js';
 
 const AUTO = process.argv.includes('--auto');
 const DRY = process.argv.includes('--dry');
@@ -34,7 +34,14 @@ async function readInbox(page) {
   })).filter((m) => m.id && m.author));
 }
 
-const sendReply = (page, to, subject, text) => sendPrivateMessage(page, { to, subject, text });
+// Replies go back the way the conversation arrived: inbound PMs live in the legacy
+// inbox, so answer with a legacy PM first and fall back to a chat request.
+const sendReply = async (page, to, subject, text) => {
+  const pm = await sendLegacyPm(page, { to, subject, text });
+  if (pm.ok) return { ok: true, via: 'legacy-pm' };
+  const chat = await sendPrivateMessage(page, { to, subject, text });
+  return chat.ok ? chat : { ok: false, error: `pm: ${pm.error} | chat: ${chat.error}` };
+};
 
 async function main() {
   const summary = { seen: 0, new_inbound: 0, drafted: 0, sent: 0, closed: 0, unmatched: 0 };

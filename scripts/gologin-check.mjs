@@ -1,16 +1,12 @@
-// Smoke test: launch the Reddit GoLogin profile from code and confirm it is logged in.
+// Smoke test: launch the Reddit GoLogin profile from code, confirm login + proxy IP.
 import { config } from 'dotenv';
-import { GologinApi } from 'gologin';
 config({ path: '.env.local' });
-const GL = GologinApi({ token: process.env.GOLOGIN_TOKEN });
+import { withRedditBrowser, redditUser, gotoOld } from '../lib/gologin.js';
 const t0 = Date.now();
-const { browser } = await GL.launch({ profileId: process.env.GOLOGIN_PROFILE_ID, uploadCookiesToServer: true });
-console.log('launched in', ((Date.now() - t0) / 1000).toFixed(1), 's');
-const page = await browser.newPage();
-await page.goto('https://old.reddit.com/message/inbox/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-const user = await page.$eval('#header-bottom-right .user a', (a) => a.textContent.trim()).catch(() => null);
-const unread = await page.$$eval('.message.unread, .message.new', (m) => m.length).catch(() => -1);
-const ip = await page.evaluate(() => fetch('https://api.ipify.org?format=json').then((r) => r.json()).then((j) => j.ip).catch(() => null));
-console.log({ user, unreadMessages: unread, ip });
-await GL.exit();
-console.log('closed');
+await withRedditBrowser(async (page) => {
+  console.log('launched in', ((Date.now() - t0) / 1000).toFixed(1), 's');
+  await gotoOld(page, 'https://old.reddit.com/message/inbox/');
+  const user = await redditUser(page);
+  const ip = await page.evaluate(() => fetch('https://api.ipify.org?format=json').then((r) => r.json()).then((j) => j.ip).catch(() => null));
+  console.log(JSON.stringify({ user, url: page.url(), ip }));
+});
