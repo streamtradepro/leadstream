@@ -14,7 +14,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 import { db } from '../lib/db.js';
 import { draftDm } from '../lib/classify.js';
-import { withRedditBrowser, redditUser, gotoOld, humanType, sleep, jitter, pageText } from '../lib/gologin.js';
+import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sleep } from '../lib/gologin.js';
 
 const args = {};
 for (let i = 2; i < process.argv.length; i++) {
@@ -67,46 +67,30 @@ async function main() {
   if (args.dry) console.log('DRY RUN — will fill compose but not send');
 
   await withRedditBrowser(async (page) => {
-    await gotoOld(page, `https://old.reddit.com/message/compose/?to=${encodeURIComponent(user)}&subject=${encodeURIComponent(subject)}`);
+    await gotoOld(page, 'https://old.reddit.com/');
     const me = await redditUser(page);
     if (!me) throw new Error('profile is not logged into Reddit — run scripts/gologin-login.mjs and sign in');
 
-    const box = '#compose-message textarea[name="text"]';
-    await page.waitForSelector(box, { timeout: 15_000 });
-    await sleep(jitter(1000, 2200));
-    await humanType(page, box, text);
-    await sleep(jitter(700, 1500));
-
+    const r = await sendPrivateMessage(page, { to: user, subject, text, dry: !!args.dry });
     if (args.dry) {
-      console.log('dry run: compose filled, leaving the window open 60s');
+      console.log(r.ok ? 'dry run: compose filled, leaving the window open 60s' : 'dry run could not fill compose: ' + r.error);
       await sleep(60_000);
       return;
     }
 
-    await page.click('#compose-message button[type="submit"], #compose-message .btn');
-    // old reddit answers inline: ".status" says "your message has been delivered",
-    // ".error" carries USER_DOESNT_EXIST / NOT_WHITELISTED_BY_USER_MESSAGE / RATELIMIT.
-    await sleep(2500);
-    const status = (await pageText(page, '#compose-message .status')).trim();
-    const errs = await page.$$eval('#compose-message .error', (els) => els.map((e) => e.textContent.trim()).filter(Boolean)).catch(() => []);
-    const delivered = /delivered/i.test(status) || /\/message\/(sent|inbox)/.test(page.url());
-    const errText = errs.join(' | ');
-    const unreachable = /doesn'?t accept|not accepting|whitelist|blocked|doesn'?t exist|USER_DOESNT_EXIST/i.test(errText);
-
-    const row = {
+    const unreachable = /doesn'?t accept|not accepting|can'?t send|blocked|doesn'?t exist|not found|recipient field/i.test(r.error || '');
+    await db().from('reddit_dms').insert({
       lead_id: lead?.id || null, reddit_user: user, direction: 'out', subject, body: text,
-      sent_by: args.text ? 'owner' : 'auto', status: delivered ? 'sent' : 'failed', error: delivered ? null : (errText || status || 'no confirmation'),
-    };
-    await db().from('reddit_dms').insert(row);
-
+      sent_by: args.text ? 'owner' : 'auto', status: r.ok ? 'sent' : 'failed', error: r.ok ? null : r.error,
+    });
     if (lead) {
-      const patch = delivered
+      const patch = r.ok
         ? { dm_status: 'sent', dm_count: (lead.dm_count || 0) + 1, status: 'replied', handled_by: `gologin-dm:${me}`, handled_at: new Date().toISOString() }
         : unreachable ? { dm_status: 'unreachable' } : {};
       if (Object.keys(patch).length) await db().from('leads').update(patch).eq('id', lead.id);
     }
-    if (!delivered) throw new Error('not delivered: ' + (errText || status || 'no confirmation on page'));
-    console.log(`sent as ${me}`);
+    if (!r.ok) throw new Error('not delivered: ' + r.error);
+    console.log(`sent as ${me}`, r.note || '', r.finalUrl);
   });
 }
 

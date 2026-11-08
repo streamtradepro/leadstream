@@ -4,7 +4,7 @@ import { GologinApi } from 'gologin';
 config({ path: '.env.local' });
 const GL = GologinApi({ token: process.env.GOLOGIN_TOKEN });
 const t0 = Date.now();
-const { browser } = await GL.launch({ profileId: process.env.GOLOGIN_PROFILE_ID });
+const { browser } = await GL.launch({ profileId: process.env.GOLOGIN_PROFILE_ID, uploadCookiesToServer: true });
 console.log('launched in', ((Date.now() - t0) / 1000).toFixed(1), 's');
 const page = await browser.newPage();
 await page.goto('https://old.reddit.com/message/inbox/', { waitUntil: 'domcontentloaded', timeout: 60000 });

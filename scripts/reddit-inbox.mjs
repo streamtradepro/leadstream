@@ -15,7 +15,7 @@ config({ path: '.env.local' });
 import { db } from '../lib/db.js';
 import { draftDmFollowup } from '../lib/classify.js';
 import { sendPush } from '../lib/push.js';
-import { withRedditBrowser, redditUser, gotoOld, humanType, sleep, jitter, pageText } from '../lib/gologin.js';
+import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sleep, jitter } from '../lib/gologin.js';
 
 const AUTO = process.argv.includes('--auto');
 const DRY = process.argv.includes('--dry');
@@ -34,20 +34,7 @@ async function readInbox(page) {
   })).filter((m) => m.id && m.author));
 }
 
-async function sendReply(page, to, subject, text) {
-  await gotoOld(page, `https://old.reddit.com/message/compose/?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}`);
-  const box = '#compose-message textarea[name="text"]';
-  await page.waitForSelector(box, { timeout: 15_000 });
-  await sleep(jitter(900, 2000));
-  await humanType(page, box, text);
-  await sleep(jitter(600, 1400));
-  await page.click('#compose-message button[type="submit"], #compose-message .btn');
-  await sleep(2500);
-  const status = (await pageText(page, '#compose-message .status')).trim();
-  const errs = await page.$$eval('#compose-message .error', (els) => els.map((e) => e.textContent.trim()).filter(Boolean)).catch(() => []);
-  const ok = /delivered/i.test(status) || /\/message\/(sent|inbox)/.test(page.url());
-  return { ok, error: ok ? null : (errs.join(' | ') || status || 'no confirmation') };
-}
+const sendReply = (page, to, subject, text) => sendPrivateMessage(page, { to, subject, text });
 
 async function main() {
   const summary = { seen: 0, new_inbound: 0, drafted: 0, sent: 0, closed: 0, unmatched: 0 };
