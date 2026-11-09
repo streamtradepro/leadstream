@@ -1,0 +1,107 @@
+#!/usr/bin/env node
+// Send a private Reddit message to a lead from the owner's account via GoLogin.
+//
+//   node scripts/reddit-dm.mjs --lead <uuid>              # AI-drafted, disclosed DM with the phone line
+//   node scripts/reddit-dm.mjs --lead <uuid> --text "…"    # your own words
+//   node scripts/reddit-dm.mjs --user <name> --text "…"    # ad-hoc, no lead
+//   --dry    open compose and fill it, do NOT send (window stays open 60s)
+//   --force  ignore the daily cap, the 48h freshness rule and dm_status
+//
+// Guard rails (Reddit bans the account for PATTERN, not for the proxy):
+//   DM_DAILY_CAP (default 6) outbound DMs per calendar day, UTC
+//   only leads posted in the last 48h, never the same user twice
+import { config } from 'dotenv';
+config({ path: '.env.local' });
+import { db } from '../lib/db.js';
+import { draftDm } from '../lib/classify.js';
+import { withRedditBrowser, redditUser, gotoOld, sendPrivateMessage, sendLegacyPm, sleep } from '../lib/gologin.js';
+
+const args = {};
+for (let i = 2; i < process.argv.length; i++) {
+  const a = process.argv[i];
+  if (!a.startsWith('--')) continue;
+  const next = process.argv[i + 1];
+  args[a.slice(2)] = next === undefined || next.startsWith('--') ? true : next;
+}
+
+const CAP = Number(process.env.DM_DAILY_CAP || 6);
+const dayStart = new Date(); dayStart.setUTCHours(0, 0, 0, 0);
+
+async function main() {
+  let lead = null;
+  let user = args.user;
+  let text = typeof args.text === 'string' ? args.text : null;
+
+  if (args.lead) {
+    const { data, error } = await db().from('leads').select('*').eq('id', args.lead).single();
+    if (error || !data) throw new Error('lead not found: ' + (error?.message || args.lead));
+    lead = data;
+    user = user || lead.author;
+    if (!args.force) {
+      if (lead.dm_status) throw new Error(`lead already has dm_status=${lead.dm_status}`);
+      const ageH = (Date.now() - new Date(lead.posted_at || lead.created_at).getTime()) / 36e5;
+      if (ageH > 48) throw new Error(`post is ${ageH.toFixed(0)}h old; DMs only go to posts under 48h (--force to override)`);
+    }
+  }
+  if (!user) throw new Error('need --lead <id> or --user <name>');
+  if (!user || /^\[deleted\]$/i.test(user)) throw new Error('author is deleted');
+
+  if (!args.force) {
+    const { count } = await db().from('reddit_dms').select('id', { count: 'exact', head: true })
+      .eq('direction', 'out').eq('status', 'sent').gte('created_at', dayStart.toISOString());
+    if ((count || 0) >= CAP) throw new Error(`daily cap reached (${count}/${CAP})`);
+    const { count: prior } = await db().from('reddit_dms').select('id', { count: 'exact', head: true })
+      .eq('direction', 'out').eq('reddit_user', user).eq('status', 'sent');
+    if (prior) throw new Error(`already messaged u/${user} before`);
+  }
+
+  if (!text) {
+    if (!lead) throw new Error('--text is required without --lead');
+    text = await draftDm(lead);
+  }
+  const subject = lead ? `your ${lead.category?.replace(/_/g, ' ') || 'repair'} post` : 'your post';
+
+  console.log('to     :', 'u/' + user);
+  console.log('subject:', subject);
+  console.log('message:', text);
+  if (args.dry) console.log('DRY RUN — will fill compose but not send');
+
+  await withRedditBrowser(async (page) => {
+    await gotoOld(page, 'https://old.reddit.com/');
+    const me = await redditUser(page);
+    if (!me) throw new Error('profile is not logged into Reddit — run scripts/gologin-login.mjs and sign in');
+
+    let r = await sendPrivateMessage(page, { to: user, subject, text, dry: !!args.dry });
+    // Chat request refused (their settings block strangers)? Fall back to a classic
+    // private message, which lands in the old "messages" inbox and is usually open.
+    if (!args.dry && !r.ok && /unable to send a message request|can'?t message that user|Send disabled/i.test(r.error || '')) {
+      console.log('chat request blocked, trying a classic private message…');
+      const pm = await sendLegacyPm(page, { to: user, subject, text });
+      r = pm.ok ? { ok: true, via: 'legacy-pm', note: pm.raw } : { ok: false, error: `chat: ${r.error} | pm: ${pm.error}`, finalUrl: r.finalUrl };
+    }
+    if (args.dry) {
+      console.log(r.ok ? 'dry run: compose filled, leaving the window open 60s' : 'dry run could not fill compose: ' + r.error);
+      await sleep(60_000);
+      return;
+    }
+
+    if (!r.ok) console.error('send result:', JSON.stringify(r).slice(0, 800));
+    // "You can't message that user." = their chat settings block strangers; Reddit's
+    // compose page sends a direct CHAT (SendDirectChatToRedditor), not a legacy PM.
+    const unreachable = /unable to send a message request|can'?t message that user|doesn'?t accept|not accepting|can'?t send|blocked|doesn'?t exist|user not found|recipient field|Send disabled/i.test(r.error || '');
+    await db().from('reddit_dms').insert({
+      lead_id: lead?.id || null, reddit_user: user, direction: 'out', subject, body: text,
+      sent_by: args.text ? 'owner' : 'auto', status: r.ok ? 'sent' : 'failed', error: r.ok ? null : r.error,
+    });
+    if (lead) {
+      const patch = r.ok
+        ? { dm_status: 'sent', dm_count: (lead.dm_count || 0) + 1, status: 'replied', handled_by: `gologin-dm:${me}`, handled_at: new Date().toISOString() }
+        : unreachable ? { dm_status: 'unreachable' } : {};
+      if (Object.keys(patch).length) await db().from('leads').update(patch).eq('id', lead.id);
+    }
+    if (!r.ok) throw new Error('not delivered: ' + r.error);
+    console.log(`sent as ${me}`, r.note || '', r.finalUrl);
+  });
+}
+
+main().catch((e) => { console.error('reddit-dm failed:', e.message); process.exit(1); });
