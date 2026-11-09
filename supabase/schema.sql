@@ -118,3 +118,7 @@ create index if not exists reddit_dms_lead_idx on reddit_dms (lead_id);
 alter table reddit_dms enable row level security;
 alter table leads add column if not exists dm_status text;
 alter table leads add column if not exists dm_count int not null default 0;
+
+-- 2026-11-08: Reddit Chat (Matrix) room id for DM threads
+alter table reddit_dms add column if not exists thread_id text;
+create index if not exists reddit_dms_thread_idx on reddit_dms (thread_id);
